@@ -13,6 +13,7 @@ import com.webcerebrium.binance.datatype.BinanceSymbol;
 import com.webcerebrium.binance.websocket.BinanceWebSocketAdapterAggTrades;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.jetty.websocket.api.Session;
+import org.java_websocket.client.WebSocketClient;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -30,11 +31,17 @@ public class AggTradesStreamTest {
 
     @Test
     public void testTradesStreamWatcher() throws Exception, BinanceApiException {
-        Session session = binanceApi.websocketTrades(symbol, new BinanceWebSocketAdapterAggTrades() {
+        WebSocketClient session = binanceApi.websocketTrades(symbol, new BinanceWebSocketAdapterAggTrades() {
             @Override
             public void onMessage(BinanceEventAggTrade message) {
                 log.info(message.toString());
             }
+
+			@Override
+			public void onClose(int code, String reason, boolean remote) {
+				// TODO Auto-generated method stub
+				
+			}
         });
         Thread.sleep(5000);
         session.close();

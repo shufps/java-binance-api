@@ -15,23 +15,29 @@ import com.webcerebrium.binance.api.BinanceApiException;
 import com.webcerebrium.binance.datatype.BinanceEventExecutionReport;
 import com.webcerebrium.binance.datatype.BinanceEventOutboundAccountInfo;
 import lombok.extern.slf4j.Slf4j;
-import org.eclipse.jetty.websocket.api.Session;
-import org.eclipse.jetty.websocket.api.WebSocketAdapter;
+
+import java.net.URI;
+
+import org.java_websocket.client.WebSocketClient;
+import org.java_websocket.handshake.ServerHandshake;
+
+
 
 @Slf4j
-public abstract class BinanceWebSocketAdapterUserData  extends WebSocketAdapter {
-    @Override
-    public void onWebSocketConnect(Session sess) {
-        log.debug("onWebSocketConnect: {}", sess);
+public abstract class BinanceWebSocketAdapterUserData  implements BinanceWebSocketAdapterInterface {
+	
+	@Override
+	public void onOpen( ServerHandshake handshakedata ) {
+        log.debug("onWebSocketConnect: {}", handshakedata);
     }
 
-    @Override
-    public void onWebSocketError(Throwable cause) {
-        log.error("onWebSocketError: {}", cause);
+	@Override
+	public void onError( Exception ex ) {
+        log.error("onWebSocketError: {}", ex);
     }
 
-    @Override
-    public void onWebSocketText(String message) {
+	@Override
+	public void onMessage( String message ) {
         log.debug("onWebSocketText message={}", message);
         JsonObject operation = (new Gson()).fromJson(message, JsonObject.class);
 

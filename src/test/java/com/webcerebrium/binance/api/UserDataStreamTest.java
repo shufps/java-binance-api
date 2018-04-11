@@ -13,6 +13,7 @@ import com.webcerebrium.binance.datatype.BinanceEventOutboundAccountInfo;
 import com.webcerebrium.binance.websocket.BinanceWebSocketAdapterUserData;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.jetty.websocket.api.Session;
+import org.java_websocket.client.WebSocketClient;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -30,7 +31,7 @@ public class UserDataStreamTest {
     public void testUserDataStreamIsCreatedAndClosed() throws Exception, BinanceApiException {
         String listenKey = binanceApi.startUserDataStream();
         log.info("LISTEN KEY=" + listenKey);
-        Session session = binanceApi.websocket(listenKey, new BinanceWebSocketAdapterUserData() {
+        WebSocketClient session = binanceApi.websocket(listenKey, new BinanceWebSocketAdapterUserData() {
             @Override
             public void onOutboundAccountInfo(BinanceEventOutboundAccountInfo event) throws BinanceApiException {
                 log.info(event.toString());
@@ -39,6 +40,11 @@ public class UserDataStreamTest {
             public void onExecutionReport(BinanceEventExecutionReport event) throws BinanceApiException {
                 log.info(event.toString());
             }
+			@Override
+			public void onClose(int code, String reason, boolean remote) {
+				// TODO Auto-generated method stub
+				
+			}
         });
         Thread.sleep(2000);
         log.info("KEEPING ALIVE=" + binanceApi.keepUserDataStream(listenKey));

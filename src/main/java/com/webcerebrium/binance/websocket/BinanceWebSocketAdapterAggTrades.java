@@ -8,28 +8,33 @@ package com.webcerebrium.binance.websocket;
  * ============================================================ */
 
 
+import java.net.URI;
+
+import org.java_websocket.client.WebSocketClient;
+import org.java_websocket.handshake.ServerHandshake;
+
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.webcerebrium.binance.api.BinanceApiException;
 import com.webcerebrium.binance.datatype.BinanceEventAggTrade;
 import lombok.extern.slf4j.Slf4j;
-import org.eclipse.jetty.websocket.api.Session;
-import org.eclipse.jetty.websocket.api.WebSocketAdapter;
+
 
 @Slf4j
-public abstract class BinanceWebSocketAdapterAggTrades extends WebSocketAdapter {
-    @Override
-    public void onWebSocketConnect(Session sess) {
-        log.debug("onWebSocketConnect: {}", sess);
+public abstract class BinanceWebSocketAdapterAggTrades implements BinanceWebSocketAdapterInterface {
+	
+	@Override
+	public void onOpen( ServerHandshake handshakedata ) {
+        log.debug("onWebSocketConnect: {}", handshakedata);
     }
 
-    @Override
-    public void onWebSocketError(Throwable cause) {
-        log.error("onWebSocketError: {}", cause);
+	@Override
+	public void onError( Exception ex ) {
+        log.error("onWebSocketError: {}", ex);
     }
 
-    @Override
-    public void onWebSocketText(String message) {
+	@Override
+	public void onMessage( String message ) {
         log.debug("onWebSocketText message={}", message);
         JsonObject operation = (new Gson()).fromJson(message, JsonObject.class);
         try{

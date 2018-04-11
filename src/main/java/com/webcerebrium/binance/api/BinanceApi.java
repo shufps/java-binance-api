@@ -31,24 +31,34 @@ import com.webcerebrium.binance.datatype.BinanceTrade;
 import com.webcerebrium.binance.datatype.BinanceWalletAsset;
 import com.webcerebrium.binance.websocket.BinanceWebSocketAdapterAggTrades;
 import com.webcerebrium.binance.websocket.BinanceWebSocketAdapterDepth;
+import com.webcerebrium.binance.websocket.BinanceWebSocketAdapterInterface;
 import com.webcerebrium.binance.websocket.BinanceWebSocketAdapterKline;
 import com.webcerebrium.binance.websocket.BinanceWebSocketAdapterUserData;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
-import org.eclipse.jetty.util.ssl.SslContextFactory;
+/*import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.eclipse.jetty.websocket.api.Session;
 import org.eclipse.jetty.websocket.api.WebSocketAdapter;
-import org.eclipse.jetty.websocket.client.WebSocketClient;
+import org.eclipse.jetty.websocket.client.WebSocketClient;*/
 
 import java.lang.reflect.Type;
 import java.math.BigDecimal;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.security.cert.X509Certificate;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
+
+import org.java_websocket.client.WebSocketClient;
+import org.java_websocket.handshake.ServerHandshake;
 
 @Slf4j
 @Data
@@ -630,21 +640,78 @@ public class BinanceApi {
      * @return web socket session
      * @throws BinanceApiException in case of any error
      */
-    public Session getWebsocketSession(String url, WebSocketAdapter adapter) throws BinanceApiException {
+    
+ // Create a trust manager that does not validate certificate chains
+    TrustManager[] trustAllCerts = new TrustManager[] { 
+        new X509TrustManager() {     
+            public java.security.cert.X509Certificate[] getAcceptedIssuers() { 
+                return new X509Certificate[0];
+            } 
+            public void checkClientTrusted( 
+                java.security.cert.X509Certificate[] certs, String authType) {
+                } 
+            public void checkServerTrusted( 
+                java.security.cert.X509Certificate[] certs, String authType) {
+            }
+        } 
+    };   
+    
+    // unpretty but necessary ... WebSocketClient doesn't support to change URI after creation
+    class BinanceWebSocketClient extends WebSocketClient {
+    	private BinanceWebSocketAdapterInterface callback;
+
+		public BinanceWebSocketClient(URI uri, BinanceWebSocketAdapterInterface callback) {
+    		super(uri);
+    		this.callback = callback;
+    	}
+
+		@Override
+		public void onOpen( ServerHandshake handshakedata ) {
+			if (callback != null)
+				callback.onOpen(handshakedata);
+		}
+		
+		@Override
+		public void onMessage( String message ) {
+			if (callback != null)
+				callback.onMessage(message);
+		}
+		
+		@Override
+		public void onClose( int code, String reason, boolean remote ) {
+			if (callback != null)
+				callback.onClose(code, reason, remote);
+		}
+
+		@Override
+		public void onError( Exception ex ) {
+			if (callback != null)
+				callback.onError(ex);
+		}
+		
+    }
+
+    public WebSocketClient getWebsocketSession(String url, BinanceWebSocketAdapterInterface callback) throws BinanceApiException {
         try {
             URI uri = new URI(websocketBaseUrl + url);
-            SslContextFactory sslContextFactory = new SslContextFactory();
-            sslContextFactory.setTrustAll(true); // The magic
-            WebSocketClient client = new WebSocketClient(sslContextFactory);
-            client.start();
-            return client.connect(adapter, uri).get();
+
+            WebSocketClient client = new BinanceWebSocketClient(uri, callback);
+        	
+            SSLContext sslContext = SSLContext.getInstance("SSL"); 
+//    		SSLContext sc = SSLContext.getInstance("TLS"); 
+            sslContext.init(null, trustAllCerts, new java.security.SecureRandom());
+            
+            SSLSocketFactory factory = sslContext.getSocketFactory();// (SSLSocketFactory) SSLSocketFactory.getDefault();
+            client.setSocket( factory.createSocket() );
+            client.connectBlocking();
+            return client;
         } catch (URISyntaxException e) {
             throw new BinanceApiException("URL Syntax error: " + e.getMessage());
         } catch (Throwable e) {
             throw new BinanceApiException("Websocket error: " + e.getMessage());
         }
     }
-
+    
     /**
      * Depth Websocket Stream Listener
      * @param symbol i.e. "BNBBTC"
@@ -652,7 +719,7 @@ public class BinanceApi {
      * @return web socket session
      * @throws BinanceApiException in case of any error
      */
-    public Session websocketDepth(BinanceSymbol symbol, BinanceWebSocketAdapterDepth adapter) throws BinanceApiException {
+    public WebSocketClient websocketDepth(BinanceSymbol symbol, BinanceWebSocketAdapterDepth adapter) throws BinanceApiException {
         return getWebsocketSession(symbol.toString().toLowerCase() + "@depth", adapter);
     }
 
@@ -663,7 +730,7 @@ public class BinanceApi {
      * @return web socket session
      * @throws BinanceApiException in case of any error
      */
-    public Session websocketDepth20(BinanceSymbol symbol, BinanceWebSocketAdapterDepth adapter) throws BinanceApiException {
+    public WebSocketClient websocketDepth20(BinanceSymbol symbol, BinanceWebSocketAdapterDepth adapter) throws BinanceApiException {
         return getWebsocketSession(symbol.toString().toLowerCase() + "@depth20", adapter);
     }
 
@@ -674,7 +741,7 @@ public class BinanceApi {
      * @return  web socket session
      * @throws BinanceApiException in case of any error
      */
-    public Session websocketDepth10(BinanceSymbol symbol, BinanceWebSocketAdapterDepth adapter) throws BinanceApiException {
+    public WebSocketClient websocketDepth10(BinanceSymbol symbol, BinanceWebSocketAdapterDepth adapter) throws BinanceApiException {
         return getWebsocketSession(symbol.toString().toLowerCase() + "@depth10", adapter);
     }
 
@@ -685,7 +752,7 @@ public class BinanceApi {
      * @return web socket session
      * @throws BinanceApiException in case of any error
      */
-    public Session websocketDepth5(BinanceSymbol symbol, BinanceWebSocketAdapterDepth adapter) throws BinanceApiException {
+    public WebSocketClient websocketDepth5(BinanceSymbol symbol, BinanceWebSocketAdapterDepth adapter) throws BinanceApiException {
         return getWebsocketSession(symbol.toString().toLowerCase() + "@depth5", adapter);
     }
 
@@ -697,7 +764,7 @@ public class BinanceApi {
      * @return web socket session
      * @throws BinanceApiException in case of any error
      */
-    public Session websocketKlines(BinanceSymbol symbol, BinanceInterval interval, BinanceWebSocketAdapterKline adapter) throws BinanceApiException {
+    public WebSocketClient websocketKlines(BinanceSymbol symbol, BinanceInterval interval, BinanceWebSocketAdapterKline adapter) throws BinanceApiException {
         return getWebsocketSession(symbol.toString().toLowerCase() + "@kline_" + interval.toString(), adapter);
     }
 
@@ -708,7 +775,7 @@ public class BinanceApi {
      * @return web socket session
      * @throws BinanceApiException in case of any error
      */
-    public Session websocketTrades(BinanceSymbol symbol, BinanceWebSocketAdapterAggTrades adapter) throws BinanceApiException {
+    public WebSocketClient websocketTrades(BinanceSymbol symbol, BinanceWebSocketAdapterAggTrades adapter) throws BinanceApiException {
         return getWebsocketSession(symbol.toString().toLowerCase() + "@aggTrade", adapter);
     }
 
@@ -719,7 +786,7 @@ public class BinanceApi {
      * @return web socket session
      * @throws BinanceApiException in case of any error
      */
-    public Session websocket(String listenKey, BinanceWebSocketAdapterUserData adapter) throws BinanceApiException {
+    public WebSocketClient websocket(String listenKey, BinanceWebSocketAdapterUserData adapter) throws BinanceApiException {
         return getWebsocketSession(listenKey, adapter);
     }
 
